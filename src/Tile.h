@@ -13,10 +13,14 @@ enum class TypeOfTile
 	QUESTION_MARK_FIRE_FLOWER,
 	BRICK,
 	STONE,
+	UNDERGROUND_SOLID,
+	UNDERGROUND_BRICK,
 	INVISIBLE //Used to give collisions to solid entities like pipes
 };
 
 class Tile;
+
+static constexpr float fTileCount = 8.0f;
 
 class Tile
 {

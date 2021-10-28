@@ -2,7 +2,6 @@
 #include "Timer.h"
 #include "Level.h"
 #include "Player.h"
-#include "Background.h"
 #include "Renderer.h"
 
 class UserVars
@@ -17,7 +16,6 @@ public:
 private:
 	UserVars() {}
 	~UserVars() {}
-	Background m_Background;
 	Player m_Player;
 	Level m_Level;
 };
@@ -45,7 +43,6 @@ void Application::OnUserCreate()
 {
 	//Instance setup
 	Player& player = UserVars::GetInstance()->m_Player;
-	Background& background = UserVars::GetInstance()->m_Background;
 	Level& level = UserVars::GetInstance()->m_Level;
 	//Camera setup
 	float fAspectRatio = (float)m_Window->Width() / (float)m_Window->Height();
@@ -57,7 +54,7 @@ void Application::OnUserCreate()
 	m_Shaders[0].UniformMat4f(m_Camera.GetProjMatrix(), "proj");
 	m_Shaders.emplace_back("assets/shaders/coin_counter.shader");
 
-	m_Textures.emplace_back("assets/textures/tiles2.png", false);
+	m_Textures.emplace_back("assets/textures/tiles.png", false);
 	m_Textures.emplace_back("assets/textures/mario.png", false);
 	m_Textures.emplace_back("assets/textures/super_mario.png", false);
 	m_Textures.emplace_back("assets/textures/fire_mario.png", false);
@@ -66,7 +63,7 @@ void Application::OnUserCreate()
 	m_Textures.emplace_back("assets/textures/fireball.png", false);
 	m_Textures.emplace_back("assets/textures/goomba.png", false);
 	m_Textures.emplace_back("assets/textures/koopa.png", false);
-	m_Textures.emplace_back("assets/textures/background2.png", false);
+	m_Textures.emplace_back("assets/textures/background.png", false);
 	m_Textures.emplace_back("assets/textures/flagpole_final.png", false);
 	m_Textures.emplace_back("assets/textures/pipe.png", false);
 
@@ -80,23 +77,60 @@ void Application::OnUserCreate()
 	player.Position() = { 3.0f, 18.0f };
 	m_Camera -= CameraOffset;
 
-	level.LoadLevel(Level::LoadStringInputFromFile("assets/levels/level1-1.txt"),
+	//Customized level warp settings with pipes
+	PipesProperties props;
+	props.SetConnectionFunc(
+		[](std::vector<std::vector<Pipe>*> vec)
+		{
+			//Pipe 3 of area 0
+			//Set to nullptr because the exit is not a pipe, simply a free spawn
+			vec[0]->at(3).SetPipeConnection(nullptr);
+			vec[0]->at(3).nWarpArea = 1;
+
+			vec[1]->at(0).SetPipeConnection(&vec[0]->at(4));
+			vec[1]->at(0).nWarpArea = 0;
+		}
+	);
+	props.SetWarpAreaFunc(
+		[](std::vector<std::vector<Pipe>*> vec, const Pipe* sel, Level& lvl, Player& p)
+		{
+			if (&vec[0]->at(3) == sel)
+			{
+				lvl.SwitchArea(vec[0]->at(3).nWarpArea);
+				p.Position() = { 3.0f, 3.0f };
+				lvl.SetScreenPos(1, { 0.0f, 0.0f });
+			}
+
+			if (&vec[1]->at(0) == sel)
+			{
+				lvl.SwitchArea(vec[1]->at(0).nWarpArea);
+			}
+		}
+	);
+
+
+	//Main level
+	level.PushArea(Level::LoadStringInputFromFile("assets/levels/level1-1.txt"),
 		210,
 		20,
 		CameraOffset,
 		WidthInBlocks,
 		HeightInBlocks,
-		[](std::vector<Pipe>& vec)
-		{
-			vec[0].SetPipeConnection(&vec[3]);
-			vec[3].SetPipeConnection(&vec[0]);
-			vec[1].SetPipeConnection(&vec[5]);
-			vec[5].SetPipeConnection(&vec[1]);
-		});
+		props);
 
-	background.SetSize(level.GetLevelSize());
+	//Bonus area
+	level.PushArea(Level::LoadStringInputFromFile("assets/levels/level1-1sub.txt"),
+		WidthInBlocks,
+		HeightInBlocks,
+		{0.0f, 0.0f},
+		WidthInBlocks,
+		HeightInBlocks,
+		props
+	);
+	//Connecting pipes to loaded areas
+	level.InitPipes();
 
-	glClearColor(0.0f, 0.5f, 1.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -106,7 +140,6 @@ void Application::OnUserCreate()
 void Application::OnUserRun()
 {
 	Player& player = UserVars::GetInstance()->m_Player;
-	Background& background = UserVars::GetInstance()->m_Background;
 	Level& level = UserVars::GetInstance()->m_Level;
 
 	//Useful game constants
@@ -120,7 +153,6 @@ void Application::OnUserRun()
 
 		glClear(GL_COLOR_BUFFER_BIT);
 		m_Shaders[0].UniformMat4f(m_Camera.GetViewMatrix(), "view");
-		background.Draw(m_Shaders[0], m_Textures[9]);
 
 		if (m_Window->IsKeyboardEvent(InputEvent(GLFW_KEY_R, GLFW_PRESS)))
 		{
@@ -153,6 +185,8 @@ void Application::OnUserRun()
 		}
 
 		level.LevelLogic(player, m_Camera, fElapsedTime, m_Window);
+
+		level.DrawLevelBackground(m_Shaders[0], m_Textures);
 		player.Draw(m_Shaders[0], m_Textures[(int)player.GetPlayerState() + 1], m_Textures[6]);
 		level.DrawLevel(m_Shaders[0], m_Shaders[1], m_Textures);
 

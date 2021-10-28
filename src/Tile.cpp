@@ -16,18 +16,24 @@ Tile::Tile(TypeOfTile type, glm::vec2 pos)
 		fTextureOffset = 0.0f;
 		break;
 	case TypeOfTile::COIN:
-		fTextureOffset = 1.0f / 6.0f;
+		fTextureOffset = 1.0f / fTileCount;
 		break;
 	case TypeOfTile::QUESTION_MARK_EMPTY:
 	case TypeOfTile::QUESTION_MARK_MUSHROOM:
 	case TypeOfTile::QUESTION_MARK_FIRE_FLOWER:
-		fTextureOffset = 2.0f / 6.0f;
+		fTextureOffset = 2.0f / fTileCount;
 		break;
 	case TypeOfTile::BRICK:
-		fTextureOffset = 4.0f / 6.0f;
+		fTextureOffset = 4.0f / fTileCount;
 		break;
 	case TypeOfTile::STONE:
-		fTextureOffset = 5.0f / 6.0f;
+		fTextureOffset = 5.0f / fTileCount;
+		break;
+	case TypeOfTile::UNDERGROUND_SOLID:
+		fTextureOffset = 6.0f / fTileCount;
+		break;
+	case TypeOfTile::UNDERGROUND_BRICK:
+		fTextureOffset = 7.0f / fTileCount;
 		break;
 	case TypeOfTile::INVISIBLE:
 		break;

@@ -1,6 +1,7 @@
 #include "Pipe.h"
 #include "Renderer.h"
 #include "Player.h"
+#include "Level.h"
 
 Pipe::Pipe(const glm::vec2& position, uint8_t body_size)
 	:m_Pos(position), m_BodyHeight(body_size), m_pPipeBodyModels(nullptr),
@@ -66,3 +67,4 @@ bool Pipe::CheckEntrance(const Player& p, bool IsDownKeyPressed) const
 
 	return false;
 }
+

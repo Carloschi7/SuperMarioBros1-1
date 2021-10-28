@@ -10,11 +10,12 @@ class Background
 public:
 	Background();
 	Background(glm::vec2 bottom_right);
-	Background(Background&& b) noexcept;
+	Background(const Background& b) noexcept;
+	Background& operator=(const Background&) = default;
 	~Background();
 
 	void SetSize(glm::vec2 bottom_right);
-	void Draw(Shader& shd, Texture& tex);
+	void Draw(Shader& shd, const Texture& tex);
 
 private:
 	uint32_t m_Width, m_Height;

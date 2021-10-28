@@ -2,18 +2,17 @@
 #include "LevelScene.h"
 #include "Renderer.h"
 
-Level::Level()
-	:m_ScreenPos(0.0f, 0.0f), m_LevelWidth(0), m_LevelHeight(0), m_OriginalScreenPos({0.0f, 0.0f}),
+Level::Level():
 	m_WidthInBlocks(0), m_HeightInBlocks(0), m_DeathScene(nullptr), m_FlagpoleScene(nullptr),
-	m_EnterPipeScene(nullptr)
+	m_EnterPipeScene(nullptr), m_ExitPipeScene(nullptr)
 {
 }
 
 Level::Level(const std::string& levelmap, uint32_t width, uint32_t height, glm::vec2 camera_offset,
-	uint32_t widthInBlocks, uint32_t heightInBlocks, const pipe_func& func)
+	uint32_t widthInBlocks, uint32_t heightInBlocks, const PipesProperties& func)
 	: Level()
 {
-	LoadLevel(levelmap, width, height, camera_offset, widthInBlocks, heightInBlocks, func);
+	PushArea(levelmap, width, height, camera_offset, widthInBlocks, heightInBlocks, func);
 }
 
 Level::~Level()
@@ -37,22 +36,33 @@ std::string Level::LoadStringInputFromFile(const std::string& str)
 	return ret;
 }
 
-void Level::LoadLevel(const std::string& levelmap, uint32_t width, uint32_t height, glm::vec2 camera_offset,
-	uint32_t widthInBlocks, uint32_t heightInBlocks, const pipe_func& func)
+void Level::PushArea(const std::string& levelmap, uint32_t width, uint32_t height, glm::vec2 camera_offset,
+	uint32_t widthInBlocks, uint32_t heightInBlocks, const PipesProperties& func)
 {
-	m_Level = levelmap;
-	m_LevelWidth = width;
-	m_LevelHeight = height;
-	m_ScreenPos = camera_offset;
-	m_OriginalScreenPos = camera_offset;
+	m_Areas.push_back(LevelArea());
+	ReloadArea(m_Areas.size() - 1, levelmap, width, height, camera_offset, widthInBlocks,
+		heightInBlocks, func);
+}
+
+void Level::ReloadArea(uint32_t index, const std::string& levelmap, uint32_t width, uint32_t height, glm::vec2 camera_offset,
+	uint32_t widthInBlocks, uint32_t heightInBlocks, const PipesProperties& func)
+{
+	m_Areas[index].m_Level = levelmap;
+	m_Areas[index].m_LevelWidth = width;
+	m_Areas[index].m_LevelHeight = height;
+	m_Areas[index].m_ScreenPos = camera_offset;
+	m_Areas[index].m_OriginalScreenPos = camera_offset;
 	m_WidthInBlocks = widthInBlocks;
 	m_HeightInBlocks = heightInBlocks;
-	m_PipeBindingFunc = func;
+	m_PipeProps = func;
 	
-	m_Tiles.clear();
-	m_Enemies.clear();
-	m_Powerups.clear();
-	m_Pipes.clear();
+	m_Areas[index].m_Tiles.clear();
+	m_Areas[index].m_Enemies.clear();
+	m_Areas[index].m_Powerups.clear();
+	m_Areas[index].m_Pipes.clear();
+
+	//Background size
+	m_Areas[index].m_Background.SetSize(glm::vec2(width, height));
 
 	for (uint32_t y = 0; y < height; y++)
 	{
@@ -64,38 +74,44 @@ void Level::LoadLevel(const std::string& levelmap, uint32_t width, uint32_t heig
 			case '.':
 				break;
 			case '#':
-				m_Tiles.emplace_back(TypeOfTile::SOLID, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::SOLID, pos);
 				break;
 			case '$':
-				m_Tiles.emplace_back(TypeOfTile::COIN, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::COIN, pos);
 				break;
 			case '?':
-				m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_EMPTY, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_EMPTY, pos);
 				break;
 			case 'm':
-				m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_MUSHROOM, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_MUSHROOM, pos);
 				break;
 			case 'f':
-				m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_FIRE_FLOWER, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::QUESTION_MARK_FIRE_FLOWER, pos);
 				break;
 			case 'F':
 				m_Flagpole.SetPosition(pos);
-				m_Tiles.emplace_back(TypeOfTile::STONE, pos);//To make the flagpole base solid
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::STONE, pos);//To make the flagpole base solid
 				break;
 			case 'b':
-				m_Tiles.emplace_back(TypeOfTile::BRICK, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::BRICK, pos);
 				break;
 			case 's':
-				m_Tiles.emplace_back(TypeOfTile::STONE, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::STONE, pos);
+				break;
+			case 'q':
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::UNDERGROUND_SOLID, pos);
+				break;
+			case 'w':
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::UNDERGROUND_BRICK, pos);
 				break;
 			case 'i':
-				m_Tiles.emplace_back(TypeOfTile::INVISIBLE, pos);
+				m_Areas[index].m_Tiles.emplace_back(TypeOfTile::INVISIBLE, pos);
 				break;
 			case 'G':
-				m_Enemies.emplace_back(TypeOfEnemy::GOOMBA, pos, "assets/textures/goomba.png");
+				m_Areas[index].m_Enemies.emplace_back(TypeOfEnemy::GOOMBA, pos, "assets/textures/goomba.png");
 				break;
 			case 'K':
-				m_Enemies.emplace_back(TypeOfEnemy::KOOPA, pos, "assets/textures/koopa.png");
+				m_Areas[index].m_Enemies.emplace_back(TypeOfEnemy::KOOPA, pos, "assets/textures/koopa.png");
 				break;
 			case 'P':
 			case 'p':
@@ -106,47 +122,59 @@ void Level::LoadLevel(const std::string& levelmap, uint32_t width, uint32_t heig
 				if (pipe_height < 1 || pipe_height > 9)
 					pipe_height = 1;
 
-				m_Pipes.emplace_back(pos, pipe_height);
-				m_Pipes.back().bEnterable = (levelmap[y * width + x] == 'P') ? true : false;
+				m_Areas[index].m_Pipes.emplace_back(pos, pipe_height);
+				m_Areas[index].m_Pipes.back().bEnterable = (levelmap[y * width + x] == 'P') ? true : false;
 
 				//Creating pipe's solid body
 				for (int8_t i = pipe_height; i >= 0; i--)
 				{
-					m_Tiles.emplace_back(TypeOfTile::INVISIBLE, glm::vec2(pos.x, pos.y - i));
-					m_Tiles.emplace_back(TypeOfTile::INVISIBLE, glm::vec2(pos.x + 1, pos.y - i));
+					m_Areas[index].m_Tiles.emplace_back(TypeOfTile::INVISIBLE, glm::vec2(pos.x, pos.y - i));
+					m_Areas[index].m_Tiles.emplace_back(TypeOfTile::INVISIBLE, glm::vec2(pos.x + 1, pos.y - i));
 				}
 				break;
 			}
 		}
 	}
 
+	
+}
+
+void Level::InitPipes()
+{
 	//Custom pipe connection
-	m_PipeBindingFunc(m_Pipes);
+	m_PipeProps.ConnectPipes(MergedPipes());
 }
 
 void Level::DrawLevel(Shader& scene_shader, Shader& overlay_shader, const std::vector<Texture>& textures)
 {
 	Renderer::SetTextureBoundary({ 0.5f, 1.0f });
-	for (auto& t : m_Powerups)
+	for (auto& t : Cur().m_Powerups)
 	{
-		if (!t.bExpired && t.pos.x + 0.5f > m_ScreenPos.x&& t.pos.x - 0.5f < m_ScreenPos.x + m_WidthInBlocks
-			&& t.pos.y + 0.5f > m_ScreenPos.y&& t.pos.y - 0.5f < m_ScreenPos.y + m_HeightInBlocks)
+		//Draw the powerup only if it is on screen
+		if (!t.bExpired && t.pos.x + 0.5f > Cur().m_ScreenPos.x &&
+			t.pos.x - 0.5f < Cur().m_ScreenPos.x + m_WidthInBlocks &&
+			t.pos.y + 0.5f > Cur().m_ScreenPos.y &&
+			t.pos.y - 0.5f < Cur().m_ScreenPos.y + m_HeightInBlocks)
 			t.Draw(scene_shader, textures[5]);
 	}
 
 	//This is done because a single block is defined within a sixth of the whole tiles.png texture width
-	Renderer::SetTextureBoundary({ 1.0f / 6.0f, 1.0f });
-	for (auto& t : m_Tiles)
+	Renderer::SetTextureBoundary({ 1.0f / fTileCount, 1.0f });
+	for (auto& t : Cur().m_Tiles)
 	{
-		if (!t.bExpired && t.Position().x + 0.5f > m_ScreenPos.x&& t.Position().x - 0.5f < m_ScreenPos.x + m_WidthInBlocks
-			&& t.Position().y + 0.5f > m_ScreenPos.y&& t.Position().y - 0.5f < m_ScreenPos.y + m_HeightInBlocks)
+		if (!t.bExpired && t.Position().x + 0.5f > Cur().m_ScreenPos.x&&
+			t.Position().x - 0.5f < Cur().m_ScreenPos.x + m_WidthInBlocks&&
+			t.Position().y + 0.5f > Cur().m_ScreenPos.y&&
+			t.Position().y - 0.5f < Cur().m_ScreenPos.y + m_HeightInBlocks)
 			t.Draw(scene_shader, textures[0]);
 	}
 
-	for (auto& t : m_Enemies)
+	for (auto& t : Cur().m_Enemies)
 	{
-		if (t.pos.x + 0.5f > m_ScreenPos.x&& t.pos.x - 0.5f < m_ScreenPos.x + m_WidthInBlocks
-			&& t.pos.y + 0.5f > m_ScreenPos.y&& t.pos.y - 0.5f < m_ScreenPos.y + m_HeightInBlocks)
+		if (t.pos.x + 0.5f > Cur().m_ScreenPos.x&&
+			t.pos.x - 0.5f < Cur().m_ScreenPos.x + m_WidthInBlocks&&
+			t.pos.y + 0.5f > Cur().m_ScreenPos.y&&
+			t.pos.y - 0.5f < Cur().m_ScreenPos.y + m_HeightInBlocks)
 		{
 			if (t.Type() == TypeOfEnemy::GOOMBA)
 			{
@@ -167,7 +195,7 @@ void Level::DrawLevel(Shader& scene_shader, Shader& overlay_shader, const std::v
 
 	//Pipes
 	Renderer::SetTextureBoundary({ 1.0f, 0.5f });
-	for (auto& pipe : m_Pipes)
+	for (auto& pipe : Cur().m_Pipes)
 	{
 		pipe.Draw(scene_shader, textures[11]);
 	}
@@ -175,6 +203,14 @@ void Level::DrawLevel(Shader& scene_shader, Shader& overlay_shader, const std::v
 	//Coin counter
 	Renderer::SetTextureBoundary({ 0.1f, 1.0f });
 	m_CoinCounter.Draw(overlay_shader, textures[4]);
+}
+
+void Level::DrawLevelBackground(Shader& scene_shader, const std::vector<Texture>& textures)
+{
+	if (m_AreaIndex == 0)
+	{
+		Cur().m_Background.Draw(scene_shader, textures[9]);
+	}
 }
 
 void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* wnd)
@@ -191,7 +227,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 	{
 		//Determines whether mario is sandwiched between two blocks above and below
 		uint8_t bBlockSandwich = 0;
-		for (auto iter = m_Tiles.begin(); iter != m_Tiles.end(); ++iter)
+		for (auto iter = Cur().m_Tiles.begin(); iter != Cur().m_Tiles.end(); ++iter)
 		{
 			Tile& t = *iter;
 			if (glm::length(p.Position() - t.Position()) > 2.0f) continue;
@@ -232,7 +268,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 		MarioStandUpCollision();
 	}
 
-	for (auto iter = m_Tiles.begin(); iter != m_Tiles.end(); ++iter)
+	for (auto iter = Cur().m_Tiles.begin(); iter != Cur().m_Tiles.end(); ++iter)
 	{
 		Tile& t = *iter;
 		bool bExit = false;
@@ -278,38 +314,39 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 
 				//Checking for mario's fist to hit the block
 				if (pos.y > tilepos.y + 0.9f && pos.x > t.Position().x - 0.9f && 
-					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / 6.0f)
+					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / fTileCount)
 				{
-					t.fTextureOffset += 1.0f / 6.0f;
+					t.fTextureOffset += 1.0f / fTileCount;
 					m_CoinCounter.Increase();
-					m_Tiles.emplace_back(TypeOfTile::COIN, tilepos);
-					m_Tiles.back().SetIfPopup(true);
+					Cur().m_Tiles.emplace_back(TypeOfTile::COIN, tilepos);
+					Cur().m_Tiles.back().SetIfPopup(true);
 					bExit = true;
 				}
 				break;
 
 			case TypeOfTile::QUESTION_MARK_MUSHROOM:
 				if (pos.y > tilepos.y + 0.9f && pos.x > t.Position().x - 0.9f &&
-					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / 6.0f)
+					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / fTileCount)
 				{
-					t.fTextureOffset += 1.0f / 6.0f;
-					m_Powerups.emplace_back(PowerUpType::MUSHROOM, t.Position());
+					t.fTextureOffset += 1.0f / fTileCount;
+					Cur().m_Powerups.emplace_back(PowerUpType::MUSHROOM, t.Position());
 					bExit = true;
 				}
 				break;
 
 			case TypeOfTile::QUESTION_MARK_FIRE_FLOWER:
 				if (pos.y > tilepos.y + 0.9f && pos.x > t.Position().x - 0.9f &&
-					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / 6.0f)
+					pos.x < t.Position().x + 0.9f && t.fTextureOffset == 2.0f / fTileCount)
 				{
-					t.fTextureOffset += 1.0f / 6.0f;
-					m_Powerups.emplace_back(PowerUpType::FIRE_FLOWER, t.Position());
+					t.fTextureOffset += 1.0f / fTileCount;
+					Cur().m_Powerups.emplace_back(PowerUpType::FIRE_FLOWER, t.Position());
 					bExit = true;
 				}
 				break;
 
 			case TypeOfTile::BRICK:
-				if (p.Speed().y == 0.0f && t.Position().y < p.Position().y)
+			case TypeOfTile::UNDERGROUND_BRICK:
+				if (p.Speed().y == 0.0f && t.Position().y < p.Position().y && p.GetPlayerState() != PlayerState::MARIO)
 				{
 					t.bExpired = true;
 					bExit = true;
@@ -323,13 +360,13 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 
 	//ENEMY COLLSION DETECTION
 
-	for (auto iter = m_Enemies.begin(); iter != m_Enemies.end(); ++iter)
+	for (auto iter = Cur().m_Enemies.begin(); iter != Cur().m_Enemies.end(); ++iter)
 	{
 		Enemy& e = *iter;
 
 		//We dont update off-screen enemies
-		if (e.bExpired || e.pos.x + 0.5f < m_ScreenPos.x || e.pos.x - 0.5f > m_ScreenPos.x + m_WidthInBlocks
-			|| e.pos.y < m_ScreenPos.y)
+		if (e.bExpired || e.pos.x + 0.5f < Cur().m_ScreenPos.x || e.pos.x - 0.5f > Cur().m_ScreenPos.x + m_WidthInBlocks
+			|| e.pos.y < Cur().m_ScreenPos.y)
 			continue;
 		
 
@@ -341,7 +378,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 			continue;
 
 		//Collision with other enemies
-		for (auto iter2 = m_Enemies.begin(); iter2 != m_Enemies.end(); ++iter2)
+		for (auto iter2 = Cur().m_Enemies.begin(); iter2 != Cur().m_Enemies.end(); ++iter2)
 		{
 			Enemy& e2 = *iter2;
 			float dist = glm::distance(e.pos, e2.pos);
@@ -363,7 +400,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 		}
 
 		//Collision with tiles
-		for (auto iter2 = m_Tiles.begin(); iter2 != m_Tiles.end(); ++iter2)
+		for (auto iter2 = Cur().m_Tiles.begin(); iter2 != Cur().m_Tiles.end(); ++iter2)
 		{
 			Tile& t = *iter2;
 			if (glm::length(t.Position() - e.pos) > glm::sqrt(2.0f) || t.Type() == TypeOfTile::COIN ||
@@ -432,7 +469,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 	}
 
 	//POWERUPS
-	for (auto iter = m_Powerups.begin(); iter != m_Powerups.end(); ++iter)
+	for (auto iter = Cur().m_Powerups.begin(); iter != Cur().m_Powerups.end(); ++iter)
 	{
 		Powerup& pw = *iter;
 		if (pw.bExpired) continue;
@@ -471,7 +508,7 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 		//POWERUP against tiles in case of moving powerup
 		if (pw.Type() == PowerUpType::MUSHROOM)
 		{
-			for (auto iter2 = m_Tiles.begin(); iter2 != m_Tiles.end(); ++iter2)
+			for (auto iter2 = Cur().m_Tiles.begin(); iter2 != Cur().m_Tiles.end(); ++iter2)
 			{
 				Tile& t = *iter2;
 				if (glm::length(t.Position() - pw.pos) > sqrt(2.0f) || t.Type() == TypeOfTile::COIN
@@ -500,10 +537,13 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 	}
 
 	//Check pipe entrance
-	for (const auto& pipe : m_Pipes)
+	for (const auto& pipe : Cur().m_Pipes)
 	{
 		if (pipe.CheckEntrance(p, wnd->IsKeyboardEvent(InputEvent(GLFW_KEY_S, GLFW_PRESS))))
+		{
 			p.EnteringPipe = std::make_pair(true, &pipe);
+			
+		}
 	}
 
 	//Flagpole collision
@@ -512,32 +552,35 @@ void Level::LevelLogic(Player& p, Camera& c, float fElapsedTime, const Window* w
 
 void Level::ScrollScreen(Player& p, Camera& c, float fPlayerSpeed)
 {
-	if (m_ScreenPos.x <= m_LevelWidth - m_WidthInBlocks && p.Position().x > m_ScreenPos.x + m_WidthInBlocks * 0.7f)
+	if (Cur().m_ScreenPos.x <= Cur().m_LevelWidth - m_WidthInBlocks &&
+		p.Position().x > Cur().m_ScreenPos.x + m_WidthInBlocks * 0.7f)
 	{
 		c.MoveX(-fPlayerSpeed);
-		m_ScreenPos.x += fPlayerSpeed;
+		Cur().m_ScreenPos.x += fPlayerSpeed;
 	}
-	if (m_ScreenPos.x > 0.1f && p.Position().x < m_ScreenPos.x + m_WidthInBlocks * 0.3f)
+	if (Cur().m_ScreenPos.x > 0.1f &&
+		p.Position().x < Cur().m_ScreenPos.x + m_WidthInBlocks * 0.3f)
 	{
 		c.MoveX(fPlayerSpeed);
-		m_ScreenPos.x -= fPlayerSpeed;
+		Cur().m_ScreenPos.x -= fPlayerSpeed;
 	}
 
-	if (m_ScreenPos.y <= m_LevelHeight - m_HeightInBlocks - 0.5f &&
-		p.Position().y > m_ScreenPos.y + m_HeightInBlocks * 0.7f)
+	if (Cur().m_ScreenPos.y <= Cur().m_LevelHeight - m_HeightInBlocks - 0.5f &&
+		p.Position().y > Cur().m_ScreenPos.y + m_HeightInBlocks * 0.7f)
 	{
 		c.MoveY(-p.Speed().y);
-		m_ScreenPos.y += p.Speed().y;
+		Cur().m_ScreenPos.y += p.Speed().y;
 	}
-	if (m_ScreenPos.y > 0.0f && p.Position().y < m_ScreenPos.y + m_HeightInBlocks * 0.2f)
+	if (Cur().m_ScreenPos.y > 0.0f &&
+		p.Position().y < Cur().m_ScreenPos.y + m_HeightInBlocks * 0.2f)
 	{
 		c.MoveY(fPlayerSpeed);
-		m_ScreenPos.y -= fPlayerSpeed;
+		Cur().m_ScreenPos.y -= fPlayerSpeed;
 
-		if (m_ScreenPos.y < 0.0f) // Clamping camera movement
+		if (Cur().m_ScreenPos.y < 0.0f) // Clamping camera movement
 		{
-			c.MoveY(m_ScreenPos.y);
-			m_ScreenPos.y = 0.0f;
+			c.MoveY(Cur().m_ScreenPos.y);
+			Cur().m_ScreenPos.y = 0.0f;
 		}
 	}
 }
@@ -546,16 +589,32 @@ void Level::ResetCurrentLevel(Player& p, Camera& c)
 {
 	p.Position() = { 3.0f, 18.0f };
 	c.ResetPosition();
-	c.MoveY(-m_OriginalScreenPos.y);
+	c.MoveY(-m_Areas[0].m_OriginalScreenPos.y);
 	m_CoinCounter.Reset();
 
-	LoadLevel(m_Level, m_LevelWidth, m_LevelHeight, m_OriginalScreenPos,
-		m_WidthInBlocks, m_HeightInBlocks, m_PipeBindingFunc);
+	for(uint32_t i = 0; i < m_Areas.size(); i++)
+		ReloadArea(i, m_Areas[i].m_Level, m_Areas[i].m_LevelWidth, m_Areas[i].m_LevelHeight, m_Areas[i].m_OriginalScreenPos,
+			m_WidthInBlocks, m_HeightInBlocks, m_PipeProps);
+
+	InitPipes();
+
+	m_AreaIndex = 0;
+}
+
+std::vector<std::vector<Pipe>*> Level::MergedPipes()
+{
+	//This method is valid only because we are not resizing the pipe vecs
+	//after init
+	std::vector<std::vector<Pipe>*> res;
+	for (uint32_t i = 0; i < m_Areas.size(); i++)
+		res.push_back(&m_Areas[i].m_Pipes);
+
+	return res;
 }
 
 glm::ivec2 Level::GetLevelSize() const
 {
-	return glm::ivec2(m_LevelWidth, m_LevelHeight);
+	return glm::ivec2(Cur().m_LevelWidth, Cur().m_LevelHeight);
 }
 
 void Level::EntityBlockCollision(glm::vec2& pos, glm::vec2& sp, const glm::vec2& tilepos,
@@ -628,24 +687,31 @@ bool Level::HandleAnimations(Player& p, Camera& c)
 
 		if (!m_EnterPipeScene->PlayScene()) // Scene is over
 		{
+
+			m_PipeProps.WarpAreaPipes(MergedPipes(), p.EnteringPipe.second, *this, p);
+
 			//Moving mario towards exit pipe
 			const Pipe* connection = p.EnteringPipe.second->Connection();
-			p.Position().x = connection->Position().x + 1.0f;
-			p.Position().y = connection->Position().y - connection->BodyHeight() - p.GetHeight() + 3.0f;
+			if (connection)
+			{
+				p.Position().x = connection->Position().x + 1.0f;
+				p.Position().y = connection->Position().y - connection->BodyHeight() - p.GetHeight() + 3.0f;
 
-			//Translating camera position
-			m_ScreenPos.x = (connection->Position().x - m_WidthInBlocks / 2);
-			m_ScreenPos.y = -c.GetPosition().y;
+				//Translating camera position
+				Cur().m_ScreenPos.x = (connection->Position().x - m_WidthInBlocks / 2);
+				Cur().m_ScreenPos.y = (connection->Position().y > 10.0f) ? 10.0f : 0.0f;
+			}
 			c.ResetPosition();
-			c.MoveX(-m_ScreenPos.x);
-			c.MoveY(-m_ScreenPos.y);
+			c.MoveX(-Cur().m_ScreenPos.x);
+			c.MoveY(-Cur().m_ScreenPos.y);
 
 			delete m_EnterPipeScene;
 			m_EnterPipeScene = nullptr;
 			p.EnteringPipe.first = false;
 			p.EnteringPipe.second = nullptr;
 
-			m_ExitPipeScene = new PipeUpScene(p);
+			if(connection)
+				m_ExitPipeScene = new PipeUpScene(p);
 		}
 		else
 			return true;
@@ -702,7 +768,7 @@ void Level::DestroyAnimations()
 
 bool Level::IsTile(const glm::vec2& position) const
 {
-	for (const Tile& tile : m_Tiles)
+	for (const Tile& tile : Cur().m_Tiles)
 	{
 		if (tile.Type() != TypeOfTile::COIN && tile.Position() == position)
 		{
