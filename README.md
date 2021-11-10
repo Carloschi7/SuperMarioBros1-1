@@ -13,6 +13,9 @@ Requirements:
 3) GIT BASH
 
 Steps:
+
+
+
 1)Download and compile the C7Engine (steps on how to get there can be found in my C7Engine repo README)
 
 
