@@ -45,8 +45,11 @@ ENGINE_BUILD_PATH = C:/Engine/C7Engine/build
 
 
 
-7)Run the project, and you will find yourself with an error because your pc cannot find the assimp dll. So copy the dll stored in the
-	assimpdll folder and paste it into build/Debug
+7)Right click the C7Platformer project and click Build to generate the executable
+
+
+
+8)Copy the dll stored in the C7Platformer/assimpdll folder and paste it into build/Debug (the location of the executable)
 
 
 
