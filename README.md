@@ -41,7 +41,7 @@ ENGINE_BUILD_PATH = C:/Engine/C7Engine/build
 
 
 
-6)Go to the build folder and open the sln file with Visual Studio
+6)Go to the build folder, open the sln file with Visual Studio and set C7Platformer as the starting project
 
 
 
