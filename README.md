@@ -53,4 +53,10 @@ ENGINE_BUILD_PATH = C:/Engine/C7Engine/build
 
 
 
-8)And you should be good to go, enjoy!
+9)You can run the application in two ways: keep the executable and the dll in the build/Debug folder and run the program via
+Visual Studio, or transfer both the exe and the dll into the ROOT of the downloaded repo (alongside the folders assimpdll, 
+assets and src) and launch the exe by clicking on it explicitly.
+
+
+
+10)And you should be good to go, enjoy!
